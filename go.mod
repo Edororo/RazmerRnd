@@ -1,3 +1,3 @@
-module github.com/Edororo/razmerbot
+module github.com/Edororo/RazmerRnd
 
 go 1.23
