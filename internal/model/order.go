@@ -2,11 +2,16 @@ package model
 
 import "time"
 
+type Stackable interface {
+	isStackable()
+}
 type CartItem struct {
 	ProductId string
 	Price     float64
 	Quantity  int
 }
+
+func (c CartItem) isStackable() {}
 
 type Order struct {
 	ID         string
@@ -19,3 +24,5 @@ type Order struct {
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
+
+func (o Order) isStackable() {}
