@@ -1,22 +1,30 @@
 package main
 
 import (
-	"fmt"
+	"github.com/Edororo/RazmerRnd/internal/model"
 	"github.com/Edororo/RazmerRnd/internal/repository"
 	"github.com/Edororo/RazmerRnd/internal/service"
+	"github.com/Edororo/RazmerRnd/logger"
 )
 
 func main() {
-	fmt.Println("Начало генерации данных")
+	repo := repository.NewRepository()
+	ch := make(chan model.Entity, 10)
 
-	service.GenerateDataOnce()
-	service.GenerateDataOnce()
+	svc := service.NewService(ch)
 
-	fmt.Println("Все данные сохранены")
+	// Горутина-производитель
+	go svc.ProduceData()
 
-	// Пример вывода заказов
-	fmt.Println("Заказы")
-	for _, order := range repository.GetOrders() {
-		fmt.Printf("%+v\n", order)
-	}
+	// Горутина-потребитель (репозиторий)
+	go func() {
+		for e := range ch {
+			repo.AddEntity(e)
+		}
+	}()
+
+	// Горутина-логгер
+	go logger.LogNewEntries(repo)
+
+	select {} // блокируем main
 }
