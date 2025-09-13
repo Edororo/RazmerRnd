@@ -2,9 +2,9 @@ package logger
 
 import (
 	"context"
+	"github.com/Edororo/RazmerRnd/internal/repository"
 	"log"
 	"time"
-	"github.com/Edororo/RazmerRnd/internal/repository"
 )
 
 func LogNewEntries(ctx context.Context, repo *repository.Repository) {

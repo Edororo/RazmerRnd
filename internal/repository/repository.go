@@ -1,9 +1,12 @@
 package repository
 
 import (
+	"encoding/json"
 	"fmt"
-	"github.com/Edororo/RazmerRnd/internal/model"
+	"os"
 	"sync"
+
+	"github.com/Edororo/RazmerRnd/internal/model"
 )
 
 type Repository struct {
@@ -14,33 +17,65 @@ type Repository struct {
 	products []model.Product
 	cart     []model.CartItem
 	orders   []model.Order
+
+	productsFile string
+	cartFile     string
+	ordersFile   string
 }
 
-func NewRepository() *Repository {
-	return &Repository{}
+// Создание репозитория с указанием файлов для хранения данных
+func NewRepository(productsFile, cartFile, ordersFile string) *Repository {
+	r := &Repository{
+		productsFile: productsFile,
+		cartFile:     cartFile,
+		ordersFile:   ordersFile,
+	}
+
+	// Загружаем данные при старте
+	r.loadProducts()
+	r.loadCart()
+	r.loadOrders()
+
+	return r
 }
 
-// Добавление с блокировкой только нужного слайса
+// Универсальный метод
 func (r *Repository) AddEntity(e model.Entity) {
 	switch v := e.(type) {
 	case model.Product:
-		r.muProducts.Lock()
-		r.products = append(r.products, v)
-		r.muProducts.Unlock()
+		r.AddProduct(v)
 	case model.CartItem:
-		r.muCart.Lock()
-		r.cart = append(r.cart, v)
-		r.muCart.Unlock()
+		r.AddCartItem(v)
 	case model.Order:
-		r.muOrders.Lock()
-		r.orders = append(r.orders, v)
-		r.muOrders.Unlock()
+		r.AddOrder(v)
 	default:
 		fmt.Printf("Неизвестный тип: %T\n", v)
 	}
 }
 
-// Методы для получения копий слайсов
+// Добавление с сохранением
+func (r *Repository) AddProduct(p model.Product) {
+	r.muProducts.Lock()
+	defer r.muProducts.Unlock()
+	r.products = append(r.products, p)
+	r.saveProducts()
+}
+
+func (r *Repository) AddCartItem(c model.CartItem) {
+	r.muCart.Lock()
+	defer r.muCart.Unlock()
+	r.cart = append(r.cart, c)
+	r.saveCart()
+}
+
+func (r *Repository) AddOrder(o model.Order) {
+	r.muOrders.Lock()
+	defer r.muOrders.Unlock()
+	r.orders = append(r.orders, o)
+	r.saveOrders()
+}
+
+// Получение копий
 func (r *Repository) GetProducts() []model.Product {
 	r.muProducts.Lock()
 	defer r.muProducts.Unlock()
@@ -63,4 +98,66 @@ func (r *Repository) GetOrders() []model.Order {
 	cp := make([]model.Order, len(r.orders))
 	copy(cp, r.orders)
 	return cp
+}
+
+// Сохранение в JSON
+func (r *Repository) saveProducts() {
+	file, err := os.Create(r.productsFile)
+	if err != nil {
+		fmt.Println("Ошибка сохранения products:", err)
+		return
+	}
+	defer file.Close()
+	json.NewEncoder(file).Encode(r.products)
+}
+
+func (r *Repository) saveCart() {
+	file, err := os.Create(r.cartFile)
+	if err != nil {
+		fmt.Println("Ошибка сохранения cart:", err)
+		return
+	}
+	defer file.Close()
+	json.NewEncoder(file).Encode(r.cart)
+}
+
+func (r *Repository) saveOrders() {
+	file, err := os.Create(r.ordersFile)
+	if err != nil {
+		fmt.Println("Ошибка сохранения orders:", err)
+		return
+	}
+	defer file.Close()
+	json.NewEncoder(file).Encode(r.orders)
+}
+
+// Загрузка из JSON
+func (r *Repository) loadProducts() {
+	file, err := os.Open(r.productsFile)
+	if err != nil {
+		fmt.Println("Файл products не найден, создаём новый")
+		return
+	}
+	defer file.Close()
+	json.NewDecoder(file).Decode(&r.products)
+}
+
+func (r *Repository) loadCart() {
+	file, err := os.Open(r.cartFile)
+	if err != nil {
+		fmt.Println("Файл cart не найден, создаём новый")
+		return
+	}
+	defer file.Close()
+	json.NewDecoder(file).Decode(&r.cart)
+}
+
+func (r *Repository) loadOrders() {
+	file, err := os.Open(r.ordersFile)
+	if err != nil {
+		fmt.Println("Файл orders не найден, создаём новый")
+		return
+	}
+	defer file.Close()
+	json.NewDecoder(file).Decode(&r.orders)
 }
