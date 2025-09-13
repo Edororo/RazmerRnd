@@ -1,48 +1,37 @@
 package service
 
 import (
-	"fmt"
+	"context"
 	"github.com/Edororo/RazmerRnd/internal/model"
 	"time"
 )
 
 type Service struct {
-	Output chan model.Entity
+	ch chan<- model.Entity
 }
 
-func NewService(output chan model.Entity) *Service {
-	return &Service{Output: output}
+func NewService(ch chan<- model.Entity) *Service {
+	return &Service{ch: ch}
 }
 
-func (s *Service) ProduceData() {
-	ticker := time.NewTicker(500 * time.Millisecond)
+func (s *Service) ProduceData(ctx context.Context) {
+	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
-	for range ticker.C {
-		// Product
-		p := model.Product{
-			ID:    fmt.Sprintf("p-%d", time.Now().UnixNano()),
-			Name:  "T-Shirt",
-			Price: 19.99,
-		}
-		s.Output <- p
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			// Данные для примера
+			p := model.Product{ID: "p1", Name: "T-Shirt", Price: 1999.00}
+			s.ch <- p
 
-		// CartItem
-		c := model.CartItem{
-			ProductId: p.ID,
-			Price:     p.Price,
-			Quantity:  2,
-		}
-		s.Output <- c
+			c := model.CartItem{ProductId: "p1", Price: 1999.00, Quantity: 1}
+			s.ch <- c
 
-		// Order
-		o := model.Order{
-			ID:        fmt.Sprintf("o-%d", time.Now().UnixNano()),
-			Customer:  "Джон Сноу",
-			Items:     []model.CartItem{c},
-			CreatedAt: time.Now(),
-			UpdatedAt: time.Now(),
+			o := model.Order{ID: "o1", Customer: "John Doe", Items: []model.CartItem{c}}
+			s.ch <- o
 		}
-		s.Output <- o
 	}
 }
