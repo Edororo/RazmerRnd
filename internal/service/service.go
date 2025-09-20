@@ -2,8 +2,9 @@ package service
 
 import (
 	"context"
-	"github.com/Edororo/RazmerRnd/internal/model"
 	"time"
+
+	"github.com/Edororo/RazmerRnd/internal/model"
 )
 
 type Service struct {
@@ -14,8 +15,9 @@ func NewService(ch chan<- model.Entity) *Service {
 	return &Service{ch: ch}
 }
 
+// Производит новые данные каждые 2 секунды
 func (s *Service) ProduceData(ctx context.Context) {
-	ticker := time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -23,11 +25,11 @@ func (s *Service) ProduceData(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			// Данные для примера
-			p := model.Product{ID: "p1", Name: "T-Shirt", Price: 1999.00}
+			// Пример тестовых данных
+			p := model.Product{ID: "p1", Name: "Sneakers", Price: 9990}
 			s.ch <- p
 
-			c := model.CartItem{ProductId: "p1", Price: 1999.00, Quantity: 1}
+			c := model.CartItem{ProductId: "p1", Price: 9990, Quantity: 1}
 			s.ch <- c
 
 			o := model.Order{ID: "o1", Customer: "John Doe", Items: []model.CartItem{c}}
