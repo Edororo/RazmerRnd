@@ -1,39 +1,50 @@
-package service
+package server
 
 import (
-	"context"
-	"time"
-
-	"github.com/Edororo/RazmerRnd/internal/model"
+	"github.com/Edororo/RazmerRnd/internal/repository"
+	"github.com/gorilla/mux"
+	"log"
+	"net/http"
 )
 
-type Service struct {
-	ch chan<- model.Entity
+type Server struct {
+	repo *repository.Repository
+	mux  *mux.Router
 }
 
-func NewService(ch chan<- model.Entity) *Service {
-	return &Service{ch: ch}
-}
-
-// Производит новые данные каждые 2 секунды
-func (s *Service) ProduceData(ctx context.Context) {
-	ticker := time.NewTicker(2 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			// Пример тестовых данных
-			p := model.Product{ID: "p1", Name: "Sneakers", Price: 9990}
-			s.ch <- p
-
-			c := model.CartItem{ProductId: "p1", Price: 9990, Quantity: 1}
-			s.ch <- c
-
-			o := model.Order{ID: "o1", Customer: "John Doe", Items: []model.CartItem{c}}
-			s.ch <- o
-		}
+func NewServer(repo *repository.Repository) *Server {
+	s := &Server{
+		repo: repo,
+		mux:  mux.NewRouter(),
 	}
+	s.routes()
+	return s
+}
+
+func (s *Server) routes() {
+	// --- Products ---
+	s.mux.HandleFunc("/api/products", s.handleGetProductByID).Methods("GET")
+	s.mux.HandleFunc("/api/product/{id}", s.handleGetProductByID).Methods("GET")
+	s.mux.HandleFunc("/api/product", s.handleAddProduct).Methods("POST")
+	s.mux.HandleFunc("/api/product/{id}", s.handleUpdateProduct).Methods("PUT")
+	s.mux.HandleFunc("/api/product/{id}", s.handleDeleteProduct).Methods("DELETE")
+
+	// --- Cart ---
+	s.mux.HandleFunc("/api/cart", s.handleGetCartItems).Methods("GET")
+	s.mux.HandleFunc("/api/cart/{id}", s.handleGetCartItemByID).Methods("GET")
+	s.mux.HandleFunc("/api/cart", s.handleAddCartItem).Methods("POST")
+	s.mux.HandleFunc("/api/cart/{id}", s.handleUpdateCartItem).Methods("PUT")
+	s.mux.HandleFunc("/api/cart/{id}", s.handleDeleteCartItem).Methods("DELETE")
+
+	// --- Orders ---
+	s.mux.HandleFunc("/api/orders", s.handleGetOrders).Methods("GET")
+	s.mux.HandleFunc("/api/order/{id}", s.handleGetOrderByID).Methods("GET")
+	s.mux.HandleFunc("/api/order", s.handleAddOrder).Methods("POST")
+	s.mux.HandleFunc("/api/order/{id}", s.handleUpdateOrder).Methods("PUT")
+	s.mux.HandleFunc("/api/order/{id}", s.handleDeleteOrder).Methods("DELETE")
+}
+
+func (s *Server) Run(addr string) {
+	log.Printf("Webserver запущен на %s", addr)
+	log.Fatal(http.ListenAndServe(addr, s.mux))
 }
