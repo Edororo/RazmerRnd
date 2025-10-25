@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"encoding/json"
+	_ "github.com/Edororo/RazmerRnd/docs"
+	"github.com/Edororo/RazmerRnd/internal/model"
+	"github.com/Edororo/RazmerRnd/internal/repository"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
-
-	"github.com/Edororo/RazmerRnd/internal/model"
-	"github.com/Edororo/RazmerRnd/internal/repository"
 )
 
 func main() {
@@ -24,6 +25,7 @@ func main() {
 	defer stop()
 
 	mux := http.NewServeMux()
+	mux.Handle("/swagger/", httpSwagger.WrapHandler)
 
 	mux.HandleFunc("/api/products", handleProducts(repo))
 	mux.HandleFunc("/api/products/", handleProductByID(repo))
