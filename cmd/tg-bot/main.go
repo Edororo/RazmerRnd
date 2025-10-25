@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -15,26 +14,60 @@ import (
 )
 
 func main() {
-	// Создаём репозиторий
 	repo := repository.NewRepository(
 		"data/products.json",
 		"data/cart.json",
 		"data/orders.json",
 	)
 
-	// Контекст для graceful shutdown
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
+	defer stop()
 
-	// Слушаем сигналы ОС для остановки
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, os.Kill)
-
-	// --- Web server ---
 	mux := http.NewServeMux()
 
-	// --- Products ---
-	mux.HandleFunc("/api/products", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/products", handleProducts(repo))
+	mux.HandleFunc("/api/products/", handleProductByID(repo))
+
+	mux.HandleFunc("/api/cart", handleCart(repo))
+	mux.HandleFunc("/api/cart/", handleCartByID(repo))
+
+	mux.HandleFunc("/api/orders", handleOrders(repo))
+	mux.HandleFunc("/api/orders/", handleOrderByID(repo))
+
+	server := &http.Server{
+		Addr:    ":8080",
+		Handler: mux,
+	}
+
+	go func() {
+		log.Println("Server started on :8080")
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("ListenAndServe: %v", err)
+		}
+	}()
+
+	<-ctx.Done()
+	log.Println("Shutdown signal received")
+
+	ctxShutdown, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctxShutdown); err != nil {
+		log.Fatalf("Server Shutdown Failed:%+v", err)
+	}
+
+	log.Println("Server exited properly")
+}
+
+func writeJSON(w http.ResponseWriter, data interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(data); err != nil {
+		log.Printf("JSON encode error: %v", err)
+	}
+}
+
+func handleProducts(repo *repository.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, repo.GetProducts())
@@ -53,9 +86,11 @@ func main() {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
+	}
+}
 
-	mux.HandleFunc("/api/products/", func(w http.ResponseWriter, r *http.Request) {
+func handleProductByID(repo *repository.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Path[len("/api/products/"):]
 		switch r.Method {
 		case http.MethodGet:
@@ -85,10 +120,11 @@ func main() {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
+	}
+}
 
-	// --- Cart ---
-	mux.HandleFunc("/api/cart", func(w http.ResponseWriter, r *http.Request) {
+func handleCart(repo *repository.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, repo.GetCart())
@@ -107,9 +143,11 @@ func main() {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
+	}
+}
 
-	mux.HandleFunc("/api/cart/", func(w http.ResponseWriter, r *http.Request) {
+func handleCartByID(repo *repository.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Path[len("/api/cart/"):]
 		switch r.Method {
 		case http.MethodGet:
@@ -139,10 +177,11 @@ func main() {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
+	}
+}
 
-	// --- Orders ---
-	mux.HandleFunc("/api/orders", func(w http.ResponseWriter, r *http.Request) {
+func handleOrders(repo *repository.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			writeJSON(w, repo.GetOrders())
@@ -161,9 +200,11 @@ func main() {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
+	}
+}
 
-	mux.HandleFunc("/api/orders/", func(w http.ResponseWriter, r *http.Request) {
+func handleOrderByID(repo *repository.Repository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
 		id := r.URL.Path[len("/api/orders/"):]
 		switch r.Method {
 		case http.MethodGet:
@@ -193,37 +234,5 @@ func main() {
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		}
-	})
-
-	// --- HTTP Server ---
-	server := &http.Server{
-		Addr:    ":8080",
-		Handler: mux,
 	}
-
-	// Запуск сервера в отдельной горутине
-	go func() {
-		log.Println("Server started on :8080")
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("ListenAndServe: %v", err)
-		}
-	}()
-
-	// Ждём сигнал остановки
-	<-stop
-	log.Println("Shutdown signal received")
-
-	// Graceful shutdown
-	ctxShutdown, cancelShutdown := context.WithTimeout(ctx, 5*time.Second)
-	defer cancelShutdown()
-	if err := server.Shutdown(ctxShutdown); err != nil {
-		log.Fatalf("Server Shutdown Failed:%+v", err)
-	}
-
-	log.Println("Server exited properly")
-}
-
-func writeJSON(w http.ResponseWriter, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
 }

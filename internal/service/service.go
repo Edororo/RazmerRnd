@@ -1,50 +1,79 @@
-package server
+package service
 
 import (
+	"time"
+
+	"github.com/Edororo/RazmerRnd/internal/model"
 	"github.com/Edororo/RazmerRnd/internal/repository"
-	"github.com/gorilla/mux"
-	"log"
-	"net/http"
 )
 
-type Server struct {
+type Service struct {
 	repo *repository.Repository
-	mux  *mux.Router
 }
 
-func NewServer(repo *repository.Repository) *Server {
-	s := &Server{
-		repo: repo,
-		mux:  mux.NewRouter(),
-	}
-	s.routes()
-	return s
+func NewService(repo *repository.Repository) *Service {
+	return &Service{repo: repo}
 }
 
-func (s *Server) routes() {
-	// --- Products ---
-	s.mux.HandleFunc("/api/products", s.handleGetProductByID).Methods("GET")
-	s.mux.HandleFunc("/api/product/{id}", s.handleGetProductByID).Methods("GET")
-	s.mux.HandleFunc("/api/product", s.handleAddProduct).Methods("POST")
-	s.mux.HandleFunc("/api/product/{id}", s.handleUpdateProduct).Methods("PUT")
-	s.mux.HandleFunc("/api/product/{id}", s.handleDeleteProduct).Methods("DELETE")
-
-	// --- Cart ---
-	s.mux.HandleFunc("/api/cart", s.handleGetCartItems).Methods("GET")
-	s.mux.HandleFunc("/api/cart/{id}", s.handleGetCartItemByID).Methods("GET")
-	s.mux.HandleFunc("/api/cart", s.handleAddCartItem).Methods("POST")
-	s.mux.HandleFunc("/api/cart/{id}", s.handleUpdateCartItem).Methods("PUT")
-	s.mux.HandleFunc("/api/cart/{id}", s.handleDeleteCartItem).Methods("DELETE")
-
-	// --- Orders ---
-	s.mux.HandleFunc("/api/orders", s.handleGetOrders).Methods("GET")
-	s.mux.HandleFunc("/api/order/{id}", s.handleGetOrderByID).Methods("GET")
-	s.mux.HandleFunc("/api/order", s.handleAddOrder).Methods("POST")
-	s.mux.HandleFunc("/api/order/{id}", s.handleUpdateOrder).Methods("PUT")
-	s.mux.HandleFunc("/api/order/{id}", s.handleDeleteOrder).Methods("DELETE")
+func (s *Service) GetProducts() []model.Product {
+	return s.repo.GetProducts()
 }
 
-func (s *Server) Run(addr string) {
-	log.Printf("Webserver запущен на %s", addr)
-	log.Fatal(http.ListenAndServe(addr, s.mux))
+func (s *Service) GetProductByID(id string) (*model.Product, error) {
+	return s.repo.GetProductByID(id)
+}
+
+func (s *Service) AddProduct(p model.Product) {
+	s.repo.AddProduct(p)
+}
+
+func (s *Service) UpdateProduct(id string, updated model.Product) error {
+	return s.repo.UpdateProduct(id, updated)
+}
+
+func (s *Service) DeleteProduct(id string) error {
+	return s.repo.DeleteProduct(id)
+}
+
+func (s *Service) GetCart() []model.CartItem {
+	return s.repo.GetCart()
+}
+
+func (s *Service) GetCartItemByID(id string) (*model.CartItem, error) {
+	return s.repo.GetCartItemByID(id)
+}
+
+func (s *Service) AddCartItem(c model.CartItem) {
+	s.repo.AddCartItem(c)
+}
+
+func (s *Service) UpdateCartItem(id string, updated model.CartItem) error {
+	return s.repo.UpdateCartItem(id, updated)
+}
+
+func (s *Service) DeleteCartItem(id string) error {
+	return s.repo.DeleteCartItem(id)
+}
+
+func (s *Service) GetOrders() []model.Order {
+	return s.repo.GetOrders()
+}
+
+func (s *Service) GetOrderByID(id string) (*model.Order, error) {
+	return s.repo.GetOrderByID(id)
+}
+
+func (s *Service) AddOrder(o model.Order) {
+	o.CreatedAt = time.Now()
+	o.UpdatedAt = time.Now()
+	s.repo.AddOrder(o)
+}
+
+func (s *Service) UpdateOrder(id string, updated model.Order) error {
+	updated.UpdatedAt = time.Now()
+	return s.repo.UpdateOrder(id, updated)
+}
+
+func (s *Service) DeleteOrder(id string) error {
+	return s.repo.DeleteOrder(id)
 }
